@@ -26,3 +26,41 @@ const initializeDBAndServer = async () => {
 };
 
 initializeDBAndServer();
+
+//User Register API
+app.post("/register", async (request, response) => {
+  const userDetails = request.body;
+  const { username, name, password, gender, location } = userDetails;
+  const checkUserQuery = `
+    SELECT 
+      * 
+    FROM 
+      user
+    WHERE 
+      user.username = '${username}';
+  `;
+  const dbResponse = await db.get(checkUserQuery);
+
+  if (dbResponse === undefined) {
+    const addUserQuery = `
+        INSERT INTO 
+          user(username, name, password, gender, location)
+        VALUES (
+          '${username}',
+          '${name}',
+          '${password}',
+          '${gender}',
+          '${location}'
+        );
+      `;
+    const dbResponse = await db.run(addUserQuery);
+    const userId = dbResponse.lastID;
+    response.send("User created successfully");
+  } else if (password.length < 5) {
+    response.status(400);
+    response.send("Password is too short");
+  } else {
+    response.status(400);
+    response.send("User already exists");
+  }
+});
