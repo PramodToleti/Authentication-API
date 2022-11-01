@@ -2,6 +2,7 @@ const express = require("express");
 const path = require("path");
 const { open } = require("sqlite");
 const sqlite3 = require("sqlite3");
+const bcrypt = require("bcrypt");
 
 const dbPath = path.join(__dirname, "userData.db");
 
@@ -31,6 +32,7 @@ initializeDBAndServer();
 app.post("/register", async (request, response) => {
   const userDetails = request.body;
   const { username, name, password, gender, location } = userDetails;
+  const hashedPassword = await bcrypt.hash(password, 10);
   const checkUserQuery = `
     SELECT 
       * 
@@ -48,7 +50,7 @@ app.post("/register", async (request, response) => {
         VALUES (
           '${username}',
           '${name}',
-          '${password}',
+          '${hashedPassword}',
           '${gender}',
           '${location}'
         );
@@ -62,5 +64,34 @@ app.post("/register", async (request, response) => {
   } else {
     response.status(400);
     response.send("User already exists");
+  }
+});
+
+//User Login API
+app.post("/login", async (request, response) => {
+  const { username, password } = request.body;
+  const checkUserQuery = `
+        SELECT 
+          *
+        FROM
+          user
+        WHERE 
+          user.username = '${username}';
+    `;
+  const dbResponse = await db.get(checkUserQuery);
+  if (dbResponse !== undefined) {
+    const isPasswordChecked = await bcrypt.compare(
+      password,
+      dbResponse.password
+    );
+    if (isPasswordChecked === true) {
+      response.send("Login success!");
+    } else {
+      response.status(400);
+      response.send("Invalid password");
+    }
+  } else {
+    response.status(400);
+    response.send("Invalid user");
   }
 });
