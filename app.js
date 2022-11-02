@@ -44,7 +44,11 @@ app.post("/register", async (request, response) => {
   const dbResponse = await db.get(checkUserQuery);
 
   if (dbResponse === undefined) {
-    const addUserQuery = `
+    if (password.length < 5) {
+      response.status(400);
+      response.send("Password is too short");
+    } else {
+      const addUserQuery = `
         INSERT INTO 
           user(username, name, password, gender, location)
         VALUES (
@@ -55,12 +59,10 @@ app.post("/register", async (request, response) => {
           '${location}'
         );
       `;
-    const dbResponse = await db.run(addUserQuery);
-    const userId = dbResponse.lastID;
-    response.send("User created successfully");
-  } else if (password.length < 5) {
-    response.status(400);
-    response.send("Password is too short");
+      const dbResponse = await db.run(addUserQuery);
+      const userId = dbResponse.lastID;
+      response.send("User created successfully");
+    }
   } else {
     response.status(400);
     response.send("User already exists");
@@ -95,3 +97,46 @@ app.post("/login", async (request, response) => {
     response.send("Invalid user");
   }
 });
+
+//Change user password API
+app.put("/change-password", async (request, response) => {
+  const userDetails = request.body;
+  const { username, oldPassword, newPassword } = userDetails;
+  const newHashedPassword = await bcrypt.hash(newPassword, 10);
+  const checkUserQuery = `
+    SELECT 
+      *
+    FROM 
+      user
+    WHERE 
+      username = '${username}';
+  `;
+  const dbResponse = await db.get(checkUserQuery);
+  const isOldPasswordMatched = await bcrypt.compare(
+    oldPassword,
+    dbResponse.password
+  );
+  if (isOldPasswordMatched === true) {
+    if (newPassword.length < 5) {
+      response.status(400);
+      response.send("Password is too short");
+    } else {
+      //Update the user password
+      const updateUserPassQuery = `
+        UPDATE 
+          user 
+        SET 
+          password = '${newHashedPassword}'
+        WHERE 
+          username = '${username}';
+        `;
+      await db.run(updateUserPassQuery);
+      response.send("Password updated");
+    }
+  } else {
+    response.status(400);
+    response.send("Invalid current password");
+  }
+});
+
+module.exports = app;
